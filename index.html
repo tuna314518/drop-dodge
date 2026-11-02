@@ -96,6 +96,7 @@ PC：矢印キーまたはWASDで移動<br>
 <h2>🏆 オンラインランキング</h2>
 <p class="help">難易度ごとの上位10人</p>
 <div class="rankTabs">
+<button class="rankTab selected" data-rank="all">総合</button>
 <button class="rankTab selected" data-rank="easy">易しい</button>
 <button class="rankTab" data-rank="normal">普通</button>
 <button class="rankTab" data-rank="hard">難しい</button>
@@ -103,7 +104,7 @@ PC：矢印キーまたはWASDで移動<br>
 </div>
 <div id="rankingStatus" class="status">ランキングを読み込み中...</div>
 <table class="rankTable">
-<thead><tr><th>順位</th><th>ニックネーム</th><th style="text-align:right">スコア</th></tr></thead>
+<thead><tr><th>順位</th><th>ニックネーム</th><th>難易度</th><th style="text-align:right">スコア</th></tr></thead>
 <tbody id="rankingRows">
 <tr><td colspan="3">読み込み中...</td></tr>
 </tbody>
@@ -154,6 +155,7 @@ let player,obstacles=[],items=[],shield=0,beamPower=0,slowPower=0,magnet=0;
 let inputX=0,inputY=0,pointer=null,originX=0,originY=0;
 let keys={up:false,down:false,left:false,right:false};
 let keyboardThrottle=0;
+let leyboardVX=0;
 let currentVX=0,currentVY=0,trail=[],particles=[],stars=[];
 let trailClock=0,eventTime=0,eventText="",reverseTime=0,beamCooldown=0,activeBeams=[];
 let bests={};
@@ -178,8 +180,8 @@ nicknameInput.addEventListener("input",()=>{
 function supabaseReady(){
  return SUPABASE_URL.startsWith("https://") &&
   SUPABASE_KEY.startsWith("sb_publishable_") &&
-  !SUPABASE_URL.includes("ここに") &&
-  !SUPABASE_KEY.includes("ここに");
+  !SUPABASE_URL.includes("https://ozhunjadtzqiojqlhroc.supabase.co") &&
+  !SUPABASE_KEY.includes("sb_publishable_tkWjrONKfQKRns_oqrA1tA_Y4P2htvj");
 }
 
 function supabaseHeaders(){
@@ -263,10 +265,13 @@ async function loadRanking(diff){
   return;
  }
 
- const url=SUPABASE_URL.replace(/\/$/,"")+
+ const filter=diff==="all"?"":
+  "&difficulty=eq."+encodeURIComponent(diff);
+
+const url=SUPABASE_URL.replace(/\/$/,"")+
   "/rest/v1/leaderboard"+
   "?select=nickname,difficulty,score,created_at"+
-  "&difficulty=eq."+encodeURIComponent(diff)+
+  filter+
   "&order=score.desc,created_at.asc"+
   "&limit=10";
 
@@ -289,22 +294,32 @@ async function loadRanking(diff){
   }else{
    const myName=safeNickname();
 
-   rows.forEach((row,index)=>{
-    const tr=document.createElement("tr");
-    if(myName&&row.nickname===myName)tr.classList.add("mine");
+   const difficultyNames={
+ easy:"易しい",
+ normal:"普通",
+ hard:"難しい",
+ insane:"激ムズ"
+};
 
-    const rank=document.createElement("td");
-    rank.textContent=index+1;
+rows.forEach((row,index)=>{
+ const tr=document.createElement("tr");
+ if(myName&&row.nickname===myName)tr.classList.add("mine");
 
-    const name=document.createElement("td");
-    name.textContent=row.nickname;
+ const rank=document.createElement("td");
+ rank.textContent=index+1;
 
-    const score=document.createElement("td");
-    score.textContent=Number(row.score).toLocaleString();
+ const name=document.createElement("td");
+ name.textContent=row.nickname;
 
-    tr.append(rank,name,score);
-    $("rankingRows").appendChild(tr);
-   });
+ const diff=document.createElement("td");
+ diff.textContent=difficultyNames[row.difficulty]||row.difficulty;
+
+ const score=document.createElement("td");
+ score.textContent=Number(row.score).toLocaleString();
+
+ tr.append(rank,name,diff,score);
+ $("rankingRows").appendChild(tr);
+});
   }
 
   $("rankingStatus").textContent="ランキングを取得しました。";
@@ -654,6 +669,7 @@ window.addEventListener("keyup",e=>{
 window.addEventListener("blur",()=>{
  Object.keys(keys).forEach(k=>keys[k]=false);
  keyboardThrottle=0;
+ keyboardVX=0;
  pointer=null;
  resetJoy();
 });
@@ -757,6 +773,7 @@ function startGame(){
  currentVX=0;currentVY=0;trail=[];particles=[];trailClock=0;
  Object.keys(keys).forEach(k=>keys[k]=false);
  keyboardThrottle=0;
+ keyboardVX=0;
  pointer=null;resetJoy();running=true;
  $("menu").classList.add("hidden");
  $("rankingPanel").classList.add("hidden");
@@ -820,19 +837,44 @@ function update(dt){
  elapsed+=dt;
  const cfg=settings[difficulty];
 
-let dx=(keys.right?1:0)-(keys.left?1:0)+inputX;
 let dy=(keys.down?1:0)-(keys.up?1:0)+inputY;
-
-if(reverseTime>0)dx=-dx;
-
-dx=Math.max(-1,Math.min(1,dx));
 dy=Math.max(-1,Math.min(1,dy));
 
 const forwardAmount=Math.max(0,-dy);
 const speed=cfg.minSpeed+(cfg.maxSpeed-cfg.minSpeed)*forwardAmount;
 
-currentVX=dx*speed*1.4;
-currentVY=dy*speed;
+// PCの左右移動：慣性を追加
+const keyboardDirection=(keys.right?1:0)-(keys.left?1:0);
+
+if(pointer!==null){
+ // スマホは従来どおりジョイスティックで操作
+ currentVX=inputX*speed*1.4;
+}else{
+ // PCは徐々に加速・減速する
+ const direction=reverseTime>0?-1:1;
+ const targetVX=keyboardDirection*speed*1.4*direction;
+
+ const acceleration=speed*(
+  keyboardDirection===0?2.0:3.0
+ );
+
+ const difference=targetVX-keyboardVX;
+ const change=acceleration*dt;
+
+ if(Math.abs(difference)<=change){
+  keyboardVX=targetVX;
+ }else{
+  keyboardVX+=Math.sign(difference)*change;
+ }
+
+ currentVX=keyboardVX;
+}
+
+if(pointer!==null&&reverseTime>0){
+ currentVX=-currentVX;
+}
+
+currentVY=-speed;
 
 player.x+=currentVX*dt;
 player.x=Math.max(4,Math.min(W-player.w-4,player.x));
@@ -1238,7 +1280,7 @@ $("back").addEventListener("click",()=>{
 });
 
 /* 最初にランキングを読み込む */
-loadRanking("easy");
+loadRanking("all");
 
 </script>
 </body>
