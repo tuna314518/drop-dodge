@@ -36,7 +36,7 @@ input{width:100%;padding:12px;border-radius:9px;border:1px solid #60738e;backgro
 .rankTable td:first-child{width:45px}
 .rankTable td:last-child{font-weight:bold;color:#55c7ff;text-align:right}
 .rankTable .mine{background:#23415b}
-.rankTabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px}
+.rankTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:10px}
 .rankTab{padding:8px 2px;border:1px solid #60738e;background:#263750;color:white;border-radius:8px;font-size:12px}
 .rankTab.selected{background:#145d80;border-color:#55c7ff}
 .status{font-size:12px;color:#aebbd0;min-height:20px;margin-top:8px}
@@ -155,7 +155,7 @@ let player,obstacles=[],items=[],shield=0,beamPower=0,slowPower=0,magnet=0;
 let inputX=0,inputY=0,pointer=null,originX=0,originY=0;
 let keys={up:false,down:false,left:false,right:false};
 let keyboardThrottle=0;
-let leyboardVX=0;
+let keyboardVX=0;
 let currentVX=0,currentVY=0,trail=[],particles=[],stars=[];
 let trailClock=0,eventTime=0,eventText="",reverseTime=0,beamCooldown=0,activeBeams=[];
 let bests={};
@@ -178,10 +178,8 @@ nicknameInput.addEventListener("input",()=>{
 });
 
 function supabaseReady(){
- return SUPABASE_URL.startsWith("https://") &&
-  SUPABASE_KEY.startsWith("sb_publishable_") &&
-  !SUPABASE_URL.includes("https://ozhunjadtzqiojqlhroc.supabase.co") &&
-  !SUPABASE_KEY.includes("sb_publishable_tkWjrONKfQKRns_oqrA1tA_Y4P2htvj");
+ return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL) &&
+  SUPABASE_KEY.startsWith("sb_publishable_");
 }
 
 function supabaseHeaders(){
