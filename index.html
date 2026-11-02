@@ -97,7 +97,7 @@ PC：矢印キーまたはWASDで移動<br>
 <p class="help">難易度ごとの上位10人</p>
 <div class="rankTabs">
 <button class="rankTab selected" data-rank="all">総合</button>
-<button class="rankTab selected" data-rank="easy">易しい</button>
+<button class="rankTab" data-rank="easy">易しい</button>
 <button class="rankTab" data-rank="normal">普通</button>
 <button class="rankTab" data-rank="hard">難しい</button>
 <button class="rankTab" data-rank="insane">激ムズ</button>
@@ -257,11 +257,11 @@ async function loadRanking(diff){
  });
 
  $("rankingStatus").textContent="ランキングを読み込み中...";
- $("rankingRows").innerHTML='<tr><td colspan="3">読み込み中...</td></tr>';
+ $("rankingRows").innerHTML='<tr><td colspan="4">読み込み中...</td></tr>';
 
  if(!supabaseReady()){
   $("rankingStatus").textContent="Supabaseの接続設定が必要です。";
-  $("rankingRows").innerHTML='<tr><td colspan="3">URLとPublishable keyを設定してください。</td></tr>';
+  $("rankingRows").innerHTML='<tr><td colspan="4">URLとPublishable keyを設定してください。</td></tr>';
   return;
  }
 
@@ -290,7 +290,7 @@ const url=SUPABASE_URL.replace(/\/$/,"")+
   $("rankingRows").innerHTML="";
 
   if(rows.length===0){
-   $("rankingRows").innerHTML='<tr><td colspan="3">まだ記録がありません。</td></tr>';
+   $("rankingRows").innerHTML='<tr><td colspan="4">まだ記録がありません。</td></tr>';
   }else{
    const myName=safeNickname();
 
@@ -327,7 +327,7 @@ rows.forEach((row,index)=>{
  }catch(error){
   console.error(error);
   $("rankingStatus").textContent="ランキングを取得できませんでした。";
-  $("rankingRows").innerHTML='<tr><td colspan="3">通信エラーが発生しました。</td></tr>';
+  $("rankingRows").innerHTML='<tr><td colspan="4">通信エラーが発生しました。</td></tr>';
  }
 }
 
