@@ -832,9 +832,12 @@ function update(dt){
   return;
  }
 
- elapsed+=dt;
- const cfg=settings[difficulty];
+elapsed+=dt;
+const cfg=settings[difficulty];
 
+// このフレームで移動する前の進行度を保存
+const previousProgress=progress;
+ 
 let dy=(keys.down?1:0)-(keys.up?1:0)+inputY;
 dy=Math.max(-1,Math.min(1,dy));
 
@@ -946,13 +949,22 @@ progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
   if(y<-800||y>H+300)continue;
 
   let shapes=[];
-
-  if(o.type==="spike"){
+if(o.type==="spike"){
    const wy=PLAYER_Y-95;
-   if(y>wy-40&&y<wy+20){
+
+   // 前フレームと現在のトゲの位置
+   const previousY=PLAYER_Y-(o.at-previousProgress);
+
+   // トゲが警告範囲を通過したか判定
+   const top=Math.min(previousY,y);
+   const bottom=Math.max(previousY,y);
+
+   if(bottom>=wy-40&&top<=wy+20){
     shapes=[{
      x:o.side==="left"?0:W-o.w,
-     y:y-15,w:o.w,h:30
+     y:wy-15,
+     w:o.w,
+     h:30
     }];
    }
   }else if(o.type==="laser"){
