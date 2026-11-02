@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>DROP DODGE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:12px;background:#101827;color:white;font-family:sans-serif;text-align:center;user-select:none;-webkit-user-select:none}
+main{max-width:500px;margin:auto}
+h1{font-size:27px;letter-spacing:2px}
+h1 span{color:#55c7ff}
+.subtitle,.help{color:#aebbd0;font-size:12px}
+.panel{background:#1b2940;border:1px solid #40536d;border-radius:15px;padding:15px;margin-bottom:12px}
+.difficulties{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.diff{padding:12px 4px;border:1px solid #60738e;border-radius:10px;background:#263750;color:white;font-size:15px;font-weight:bold}
+.diff.selected{background:#145d80;border:2px solid #55c7ff}
+.diff[data-diff="insane"]{grid-column:1/-1}
+.diff[data-diff="insane"].selected{background:#632d48;border-color:#ff668e}
+#description{color:#c4d0df;font-size:13px;min-height:38px}
+.mainButton{width:100%;padding:14px;border:0;border-radius:12px;background:#55c7ff;color:#102030;margin-top:8px;font-size:16px;font-weight:bold}
+.subButton{width:100%;padding:12px;margin-top:8px;background:#263750;border:1px solid #60738e;border-radius:10px;color:white}
+.hidden{display:none!important}
+.hud{display:flex;justify-content:space-between;gap:5px;font-size:12px;margin:10px 0}
+.gameWrap{position:relative;width:100%;touch-action:none;overflow:hidden;border-radius:12px}
+canvas{display:block;width:100%;height:auto;border:1px solid #40536d;border-radius:12px;background:#091321;touch-action:none}
+#joystick{position:fixed;width:112px;height:112px;margin-left:-56px;margin-top:-56px;border-radius:50%;background:rgba(150,190,220,.15);border:2px solid rgba(190,220,255,.48);pointer-events:none;display:none;z-index:9999}
+#knob{position:absolute;left:50%;top:50%;width:44px;height:44px;margin-left:-22px;margin-top:-22px;border-radius:50%;background:rgba(85,199,255,.9);border:2px solid #b6eaff;pointer-events:none}
+#event{min-height:22px;color:#ffd166;font-size:13px;font-weight:bold}
+.effectList{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin:8px 0}
+.effect{background:#263750;border:1px solid #536b88;border-radius:8px;padding:5px 8px;font-size:12px}
+input{width:100%;padding:12px;border-radius:9px;border:1px solid #60738e;background:#101827;color:white;font-size:16px}
+.rankTable{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+.rankTable th,.rankTable td{padding:9px 4px;border-bottom:1px solid #40536d}
+.rankTable th{color:#aebbd0}
+.rankTable td:first-child{width:45px}
+.rankTable td:last-child{font-weight:bold;color:#55c7ff;text-align:right}
+.rankTable .mine{background:#23415b}
+.rankTabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px}
+.rankTab{padding:8px 2px;border:1px solid #60738e;background:#263750;color:white;border-radius:8px;font-size:12px}
+.rankTab.selected{background:#145d80;border-color:#55c7ff}
+.status{font-size:12px;color:#aebbd0;min-height:20px;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>DROP DODGE <span>5.0</span></h1>
+<p class="subtitle">避けて、進んで、ゴールを目指せ。</p>
+
+<section id="menu" class="panel">
+<h2>難易度を選択</h2>
+<div class="difficulties">
+<button class="diff selected" data-diff="easy">易しい</button>
+<button class="diff" data-diff="normal">普通</button>
+<button class="diff" data-diff="hard">難しい</button>
+<button class="diff" data-diff="insane">🔥 激ムズ</button>
+</div>
+<p id="description">連続した2〜3レーンが基本。落ち着いて進もう！</p>
+
+<div style="text-align:left;margin-top:15px">
+<label for="nickname">ランキング用ニックネーム（1〜16文字）</label>
+<input id="nickname" type="text" maxlength="16" placeholder="ニックネームを入力" autocomplete="nickname">
+<p class="help">個人情報や本名は入力しないでください。</p>
+</div>
+
+<button id="start" class="mainButton">スタート</button>
+<p class="help">
+スマホ：画面の好きな場所をタッチして移動<br>
+PC：矢印キーまたはWASDで移動<br>
+上に倒すほど速く前進できます
+</p>
+</section>
+
+<section id="gameArea" class="hidden">
+<div class="hud">
+<span>TIME <b id="time">0.00</b></span>
+<span>進行度 <b id="progress">0</b>%</span>
+<span>シールド <b id="shield">0</b></span>
+</div>
+<div class="effectList" id="effects"></div>
+<div class="gameWrap"><canvas id="game" width="400" height="500"></canvas></div>
+<p id="event"></p>
+<p class="help">上に倒すと前進。倒す量で速度を調整できます。</p>
+</section>
+
+<section id="result" class="panel hidden">
+<h2 id="resultTitle">ゴール！</h2>
+<h1 id="score">0 pt</h1>
+<p id="resultText"></p>
+<p id="saveStatus" class="status"></p>
+<button id="retry" class="mainButton">もう一度挑戦</button>
+<button id="back" class="subButton">難易度選択に戻る</button>
+</section>
+
+<section id="rankingPanel" class="panel">
+<h2>🏆 オンラインランキング</h2>
+<p class="help">難易度ごとの上位10人</p>
+<div class="rankTabs">
+<button class="rankTab selected" data-rank="easy">易しい</button>
+<button class="rankTab" data-rank="normal">普通</button>
+<button class="rankTab" data-rank="hard">難しい</button>
+<button class="rankTab" data-rank="insane">激ムズ</button>
+</div>
+<div id="rankingStatus" class="status">ランキングを読み込み中...</div>
+<table class="rankTable">
+<thead><tr><th>順位</th><th>ニックネーム</th><th style="text-align:right">スコア</th></tr></thead>
+<tbody id="rankingRows">
+<tr><td colspan="3">読み込み中...</td></tr>
+</tbody>
+</table>
+<button id="refreshRanking" class="subButton">ランキングを更新</button>
+</section>
+</main>
+
+<div id="joystick"><div id="knob"></div></div>
+
+<script>
+"use strict";
+
+/* =========================================
+   Supabase設定
+   この2か所を自分の値に置き換えてください
+========================================= */
+
+const SUPABASE_URL="https://ozhunjadtzqiojqlhroc.supabase.co";
+const SUPABASE_KEY="sb_publishable_tkWjrONKfQKRns_oqrA1tA_Y4P2htvj";
+
+/* =========================================
+   ゲーム本体
+========================================= */
+
+const $=id=>document.getElementById(id);
+const canvas=$("game"),ctx=canvas.getContext("2d");
+const W=400,H=500,COURSE=19000,PLAYER_Y=385;
+const JOY_R=55,lanes=[40,120,200,280,360],LANE_W=68;
+
+const settings={
+ easy:{mult:1,minSpeed:310,maxSpeed:500,interval:680,oneLane:0,split:0,fake:.025,special:.10,extra:0,movingSpeed:1.8,replace:.20,cluster:.35},
+ normal:{mult:1.5,minSpeed:310,maxSpeed:540,interval:475,oneLane:0,split:.12,fake:.075,special:.27,extra:.25,movingSpeed:2.5,replace:.35,cluster:.48},
+ hard:{mult:2.2,minSpeed:320,maxSpeed:580,interval:450,oneLane:.12,split:.22,fake:.10,special:.36,extra:.42,movingSpeed:3.2,replace:.12,cluster:.52},
+ insane:{mult:5,minSpeed:800,maxSpeed:800,interval:430,oneLane:.24,split:.25,fake:.12,special:.43,extra:.48,movingSpeed:3.8,replace:.22,cluster:.68}
+};
+
+const descriptions={
+ easy:"連続した2〜3レーンが基本。落ち着いて進もう！",
+ normal:"赤ブロックの一部が特殊ブロックに変化！",
+ hard:"赤ブロックも特殊ブロックも多い高難度！",
+ insane:"高密度の障害物。得点倍率は5倍！"
+};
+
+let difficulty="easy",running=false,dying=false;
+let deathTimer=0,deathFlash=0,last=0,elapsed=0,progress=0,maxProgress=0;
+let player,obstacles=[],items=[],shield=0,beamPower=0,slowPower=0,magnet=0;
+let inputX=0,inputY=0,pointer=null,originX=0,originY=0;
+let keys={up:false,down:false,left:false,right:false};
+let keyboardThrottle=0;
+let currentVX=0,currentVY=0,trail=[],particles=[],stars=[];
+let trailClock=0,eventTime=0,eventText="",reverseTime=0,beamCooldown=0,activeBeams=[];
+let bests={};
+
+try{bests=JSON.parse(localStorage.getItem("dropDodge38Bests")||"{}")}catch(e){}
+
+/* =========================================
+   Supabaseランキング機能
+========================================= */
+
+const nicknameInput=$("nickname");
+let rankingDifficulty="easy";
+
+try{
+ nicknameInput.value=localStorage.getItem("dropDodgeNickname")||"";
+}catch(e){}
+
+nicknameInput.addEventListener("input",()=>{
+ try{localStorage.setItem("dropDodgeNickname",nicknameInput.value.trim())}catch(e){}
+});
+
+function supabaseReady(){
+ return SUPABASE_URL.startsWith("https://") &&
+  SUPABASE_KEY.startsWith("sb_publishable_") &&
+  !SUPABASE_URL.includes("ここに") &&
+  !SUPABASE_KEY.includes("ここに");
+}
+
+function supabaseHeaders(){
+ return {
+  "apikey":SUPABASE_KEY,
+  "Authorization":"Bearer "+SUPABASE_KEY,
+  "Content-Type":"application/json"
+ };
+}
+
+function safeNickname(){
+ return nicknameInput.value.trim().replace(/\s+/g," ");
+}
+
+async function saveOnlineScore(score){
+ const nickname=safeNickname();
+
+ if(!nickname){
+  $("saveStatus").textContent="ニックネームを入力してから再挑戦してください。";
+  return;
+ }
+
+ if(nickname.length>16){
+  $("saveStatus").textContent="ニックネームは16文字以内にしてください。";
+  return;
+ }
+
+ if(!supabaseReady()){
+  $("saveStatus").textContent="SupabaseのURLとPublishable keyを設定してください。";
+  return;
+ }
+
+ $("saveStatus").textContent="ランキングにスコアを送信中...";
+
+ const data={
+  nickname:nickname,
+  difficulty:difficulty,
+  score:Math.min(1000000,Math.max(1,Math.round(score)))
+ };
+
+ try{
+  const response=await fetch(
+   SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/leaderboard",
+   {
+    method:"POST",
+    headers:{
+     ...supabaseHeaders(),
+     "Prefer":"return=minimal"
+    },
+    body:JSON.stringify(data)
+   }
+  );
+
+  if(!response.ok){
+   const message=await response.text();
+   throw new Error(message||"送信に失敗しました");
+  }
+
+  $("saveStatus").textContent="✓ ランキングに登録しました！";
+  loadRanking(rankingDifficulty);
+
+ }catch(error){
+  console.error(error);
+  $("saveStatus").textContent="送信できませんでした。接続設定やSupabaseの権限を確認してください。";
+ }
+}
+
+async function loadRanking(diff){
+ rankingDifficulty=diff;
+
+ document.querySelectorAll(".rankTab").forEach(b=>{
+  b.classList.toggle("selected",b.dataset.rank===diff);
+ });
+
+ $("rankingStatus").textContent="ランキングを読み込み中...";
+ $("rankingRows").innerHTML='<tr><td colspan="3">読み込み中...</td></tr>';
+
+ if(!supabaseReady()){
+  $("rankingStatus").textContent="Supabaseの接続設定が必要です。";
+  $("rankingRows").innerHTML='<tr><td colspan="3">URLとPublishable keyを設定してください。</td></tr>';
+  return;
+ }
+
+ const url=SUPABASE_URL.replace(/\/$/,"")+
+  "/rest/v1/leaderboard"+
+  "?select=nickname,difficulty,score,created_at"+
+  "&difficulty=eq."+encodeURIComponent(diff)+
+  "&order=score.desc,created_at.asc"+
+  "&limit=10";
+
+ try{
+  const response=await fetch(url,{
+   method:"GET",
+   headers:supabaseHeaders()
+  });
+
+  if(!response.ok){
+   const message=await response.text();
+   throw new Error(message||"読み込みに失敗しました");
+  }
+
+  const rows=await response.json();
+  $("rankingRows").innerHTML="";
+
+  if(rows.length===0){
+   $("rankingRows").innerHTML='<tr><td colspan="3">まだ記録がありません。</td></tr>';
+  }else{
+   const myName=safeNickname();
+
+   rows.forEach((row,index)=>{
+    const tr=document.createElement("tr");
+    if(myName&&row.nickname===myName)tr.classList.add("mine");
+
+    const rank=document.createElement("td");
+    rank.textContent=index+1;
+
+    const name=document.createElement("td");
+    name.textContent=row.nickname;
+
+    const score=document.createElement("td");
+    score.textContent=Number(row.score).toLocaleString();
+
+    tr.append(rank,name,score);
+    $("rankingRows").appendChild(tr);
+   });
+  }
+
+  $("rankingStatus").textContent="ランキングを取得しました。";
+
+ }catch(error){
+  console.error(error);
+  $("rankingStatus").textContent="ランキングを取得できませんでした。";
+  $("rankingRows").innerHTML='<tr><td colspan="3">通信エラーが発生しました。</td></tr>';
+ }
+}
+
+document.querySelectorAll(".rankTab").forEach(b=>{
+ b.addEventListener("click",()=>loadRanking(b.dataset.rank));
+});
+
+$("refreshRanking").addEventListener("click",()=>loadRanking(rankingDifficulty));
+
+/* =========================================
+   コース生成
+========================================= */
+
+function rand(seed){
+ return()=>{
+  seed=(seed*1664525+1013904223)>>>0;
+  return seed/4294967296;
+ };
+}
+
+function makeOpenLanes(random){
+ const cfg=settings[difficulty],r=random();
+ if(r<cfg.oneLane)return[Math.floor(random()*5)];
+ if(r<cfg.oneLane+cfg.split){
+  const p=[[0,2],[0,3],[1,3],[1,4],[0,2,4],[0,3,4],[0,1,3],[1,3,4]];
+  return p[Math.floor(random()*p.length)].slice();
+ }
+ const n=random()<.55?2:3,s=Math.floor(random()*(6-n));
+ return Array.from({length:n},(_,i)=>s+i);
+}
+
+function makeNormalRow(at,random){
+ const open=makeOpenLanes(random);
+ const blocked=[0,1,2,3,4].filter(i=>!open.includes(i));
+ let i=0;
+ while(i<blocked.length){
+  const group=[blocked[i]];
+  let j=i+1;
+  while(j<blocked.length&&blocked[j]===blocked[j-1]+1){
+   if(random()<.82){group.push(blocked[j]);j++}
+   else break;
+  }
+  const first=group[0],last=group[group.length-1];
+  obstacles.push({
+   type:"block",
+   x:lanes[first]-LANE_W/2+1,
+   w:(last-first)*80+LANE_W-2,
+   at,h:34,color:"#e94f64"
+  });
+  i=j;
+ }
+}
+
+function makeFakeRow(at,random){
+ const lane=Math.floor(random()*5);
+ let type;
+
+ if(random()<.5){
+  type="fakeFast";
+ }else{
+  type=random()<.5?"fakeSplitWide":"fakeSplit";
+ }
+
+ if(type==="fakeSplitWide"){
+  const start=1+Math.floor(random()*2);
+  obstacles.push({
+   type,
+   x:lanes[start]-LANE_W/2+1,
+   w:LANE_W*2+12,
+   at,h:34,
+   activated:false,activation:0,
+   direction:random()<.5?-1:1
+  });
+ }else{
+  obstacles.push({
+   type,
+   x:lanes[lane]-LANE_W/2+1,
+   w:LANE_W-2,
+   at,h:34,
+   activated:false,activation:0,
+   phase:random()*6.28,
+   direction:random()<.5?-1:1
+  });
+ }
+}
+
+function makeMoving(at,random){
+ const cfg=settings[difficulty];
+ const lane=chooseSpecialLane(at,random);
+ obstacles.push({
+  type:"moving",lane,
+  x:lanes[lane]-LANE_W/2+1,w:LANE_W-2,
+  at,h:34,phase:random()*6.28,
+  amplitude:25+random()*45,
+  frequency:cfg.movingSpeed+random()*1.2
+ });
+}
+
+function makeFixed(at,random){
+ const lane=chooseSpecialLane(at,random);
+ obstacles.push({
+  type:"fixed",lane,
+  x:lanes[lane]-LANE_W/2+1,
+  w:LANE_W-2,at,h:34
+ });
+}
+
+function makeLaser(at,random){
+ const lane=chooseSpecialLane(at,random);
+ obstacles.push({
+  type:"laser",lane,x:lanes[lane],at,
+  phase:random()*Math.PI*2,
+  speed:(random()<.5?-1:1)*(1.1+random()*.65),
+  length:58+random()*18
+ });
+}
+
+function makeSpike(at,random){
+ obstacles.push({
+  type:"spike",side:random()<.5?"left":"right",
+  at,w:85,h:45
+ });
+}
+
+function chooseSpecialLane(at,random){
+ const interval=settings[difficulty].interval;
+ const nearby=obstacles.filter(o=>
+  o.lane!==undefined&&Math.abs(o.at-at)<interval
+ );
+
+ const used=nearby.map(o=>o.lane);
+ let candidates=[0,1,2,3,4].filter(l=>!used.includes(l));
+
+ if(candidates.length===0){
+  const counts=[0,0,0,0,0];
+  used.forEach(l=>counts[l]++);
+  const min=Math.min(...counts);
+  candidates=[0,1,2,3,4].filter(l=>counts[l]===min);
+ }
+
+ if(nearby.length){
+  const nearest=nearby.reduce((a,b)=>
+   Math.abs(a.at-at)<Math.abs(b.at-at)?a:b
+  );
+  const preferred=[nearest.lane-1,nearest.lane+1]
+   .filter(l=>l>=0&&l<5&&candidates.includes(l));
+
+  if(preferred.length){
+   return preferred[Math.floor(random()*preferred.length)];
+  }
+ }
+
+ return candidates[Math.floor(random()*candidates.length)];
+}
+
+function makeReplacement(at,random){
+ const r=random();
+ if(r<.36)makeMoving(at,random);
+ else if(r<.67)makeFixed(at,random);
+ else if(r<.88)makeLaser(at,random);
+ else makeSpike(at,random);
+}
+
+function makeReplacementCluster(at,random){
+ makeReplacement(at,random);
+ const chance=settings[difficulty].cluster;
+ const offset=125;
+ if(random()<chance)makeReplacement(at-offset,random);
+ if(random()<chance)makeReplacement(at+offset,random);
+}
+
+function makeCourse(){
+ obstacles=[];items=[];
+ const seeds={easy:1201,normal:2202,hard:3303,insane:4404};
+ const random=rand(seeds[difficulty]),cfg=settings[difficulty];
+ let p=850,row=0;
+
+ while(p<COURSE-500){
+  if(row>1&&random()<cfg.replace){
+   makeReplacementCluster(p,random);
+  }else if(row>1&&random()<cfg.fake){
+   makeFakeRow(p,random);
+  }else{
+   makeNormalRow(p,random);
+  }
+
+  if(row>1&&random()<cfg.special){
+   const t=p+cfg.interval*.48;
+   makeReplacement(t,random);
+   if(difficulty!=="easy"&&random()<cfg.extra){
+    makeReplacement(t+145,random);
+   }
+  }
+
+  const chance={easy:.13,normal:.14,hard:.15,insane:.16}[difficulty];
+  if(random()<chance){
+   const types=["shield","beam","slow","magnet"];
+   items.push({
+    type:types[Math.floor(random()*4)],
+    x:lanes[Math.floor(random()*5)],
+    at:p+cfg.interval*.72,taken:false
+   });
+  }
+
+  p+=cfg.interval;
+  row++;
+ }
+
+ for(let i=0;i<4;i++){
+  items.push({
+   type:["shield","beam","slow","magnet"][i],
+   x:lanes[i+1],at:COURSE-1900+i*330,taken:false
+  });
+ }
+
+ obstacles.sort((a,b)=>a.at-b.at);
+ items.sort((a,b)=>a.at-b.at);
+}
+
+function makeBackground(){
+ stars=[];
+ for(let i=0;i<35;i++)stars.push({
+  x:Math.random()*W,y:Math.random()*H,
+  size:.7+Math.random()*1.2,speed:.4+Math.random()*.7
+ });
+}
+
+function screenY(at){return PLAYER_Y-(at-progress)}
+function slowFactor(){return slowPower>0?.42:1}
+
+function hit(a,b){
+ return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+}
+
+function addParticles(x,y,color,count=12){
+ for(let i=0;i<count;i++){
+  const a=Math.random()*Math.PI*2,s=35+Math.random()*150;
+  particles.push({
+   x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+   life:.35+Math.random()*.4,maxLife:.75,
+   size:2+Math.random()*3,color
+  });
+ }
+}
+
+function addBreakEffect(){
+ const colors=["#55c7ff","#b6eaff","#fff","#ff6578"];
+ for(let i=0;i<24;i++){
+  const a=Math.random()*Math.PI*2,s=100+Math.random()*260;
+  particles.push({
+   x:player.x+11,y:player.y+11,
+   vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+   life:.45+Math.random()*.45,maxLife:.9,
+   size:3+Math.random()*5,
+   color:colors[Math.floor(Math.random()*colors.length)],square:true
+  });
+ }
+}
+
+function beginDeath(){
+ if(dying)return;
+ dying=true;deathTimer=.8;deathFlash=.18;
+ pointer=null;resetJoy();
+ Object.keys(keys).forEach(k=>keys[k]=false);
+ addBreakEffect();
+}
+
+function showJoystick(x,y){
+ $("joystick").style.left=x+"px";
+ $("joystick").style.top=y+"px";
+ $("joystick").style.display="block";
+}
+
+function updateInput(x,y){
+ let dx=x-originX,dy=y-originY,d=Math.hypot(dx,dy);
+ if(d>JOY_R){dx=dx/d*JOY_R;dy=dy/d*JOY_R}
+ inputX=dx/JOY_R;inputY=dy/JOY_R;
+ $("knob").style.transform=`translate(${dx}px,${dy}px)`;
+}
+
+function resetJoy(){
+ inputX=0;inputY=0;
+ $("joystick").style.display="none";
+ $("knob").style.transform="translate(0px,0px)";
+}
+
+document.addEventListener("pointerdown",e=>{
+ if(!running||dying||pointer!==null||e.target.closest("button")||e.target.closest("input"))return;
+ e.preventDefault();pointer=e.pointerId;
+ originX=e.clientX;originY=e.clientY;
+ showJoystick(e.clientX,e.clientY);updateInput(e.clientX,e.clientY);
+},{passive:false});
+
+window.addEventListener("pointermove",e=>{
+ if(e.pointerId!==pointer)return;
+ e.preventDefault();updateInput(e.clientX,e.clientY);
+},{passive:false});
+
+function endPointer(e){
+ if(e.pointerId!==pointer)return;
+ pointer=null;resetJoy();
+}
+window.addEventListener("pointerup",endPointer);
+window.addEventListener("pointercancel",endPointer);
+
+const keyMap={
+ ArrowUp:"up",ArrowDown:"down",
+ ArrowLeft:"left",ArrowRight:"right",
+ w:"up",s:"down",a:"left",d:"right"
+};
+
+window.addEventListener("keydown",e=>{
+ const k=keyMap[e.key]||keyMap[e.key.toLowerCase()];
+
+ if(!k||!running||dying)return;
+
+ e.preventDefault();
+
+ if(k==="up"){
+  if(!keys.up){
+   keyboardThrottle=Math.min(1,keyboardThrottle+0.2);
+  }
+  keys.up=true;
+ }else if(k==="down"){
+  if(!keys.down){
+   keyboardThrottle=Math.max(0,keyboardThrottle-0.2);
+  }
+  keys.down=true;
+ }else{
+  keys[k]=true;
+ }
+});
+
+window.addEventListener("keyup",e=>{
+ const k=keyMap[e.key]||keyMap[e.key.toLowerCase()];
+ if(k)keys[k]=false;
+});
+
+window.addEventListener("blur",()=>{
+ Object.keys(keys).forEach(k=>keys[k]=false);
+ keyboardThrottle=0;
+ pointer=null;
+ resetJoy();
+});
+
+function collectItem(item){
+ item.taken=true;
+ const labels={
+  shield:"シールド",beam:"破壊ビーム",
+  slow:"スローモーション",magnet:"マグネット"
+ };
+ if(item.type==="shield")shield=5;
+ if(item.type==="beam")beamPower=6;
+ if(item.type==="slow")slowPower=3;
+ if(item.type==="magnet")magnet=7;
+ const colors={
+  shield:"#55c7ff",beam:"#ffe45c",
+  slow:"#bd7cff",magnet:"#ff668e"
+ };
+ addParticles(item.x,screenY(item.at),colors[item.type],22);
+ eventText=labels[item.type]+"を獲得！";
+ eventTime=1.5;
+}
+
+function fakeShapes(o){
+ const t=o.activation||0,x=o.x,y=screenY(o.at);
+ if(o.type==="fakeFast"){
+  return[{x:x+o.direction*105*t,y,w:o.w,h:o.h}];
+ }
+ if(o.type==="fakeSplitWide"){
+  const half=o.w/2;
+  const shift=80*t;
+  return[
+   {x:x-shift,y,w:half,h:o.h},
+   {x:x+half+shift,y,w:half,h:o.h}
+  ];
+ }
+ const gap=48*t,half=o.w/2;
+ return[
+  {x,y,w:Math.max(7,half-gap/2),h:o.h},
+  {x:x+half+gap/2,y,w:Math.max(7,half-gap/2),h:o.h}
+ ];
+}
+
+function updateFake(o){
+ const d=o.at-progress;
+ if(!o.activated&&d<150&&d>0){o.activated=true;o.activation=0}
+ if(o.activated)o.activation=Math.min(1,o.activation+.16);
+}
+
+function laserSegment(o){
+ const angle=o.phase+elapsed*o.speed;
+ const dx=Math.cos(angle)*o.length,dy=Math.sin(angle)*o.length;
+ const cy=screenY(o.at);
+ return{x1:o.x-dx,y1:cy-dy,x2:o.x+dx,y2:cy+dy};
+}
+
+function lineHitsRect(line,rect){
+ const steps=24;
+ for(let i=0;i<=steps;i++){
+  const t=i/steps;
+  const x=line.x1+(line.x2-line.x1)*t;
+  const y=line.y1+(line.y2-line.y1)*t;
+  if(x>=rect.x-4&&x<=rect.x+rect.w+4&&
+     y>=rect.y-4&&y<=rect.y+rect.h+4)return true;
+ }
+ return false;
+}
+
+function firePlayerBeam(){
+ if(beamPower<=0||beamCooldown>0)return;
+ beamCooldown=.38;
+ const beam={x:player.x+11,y:player.y-8,length:185,life:.18};
+ activeBeams.push(beam);
+
+ for(const o of obstacles){
+  if(o.destroyed||o.type==="spike"||o.type==="laser")continue;
+  const y=screenY(o.at);
+  if(y>beam.y||y<beam.y-beam.length)continue;
+  let shapes=[];
+  if(o.type==="fakeFast"||o.type==="fakeSplit"||o.type==="fakeSplitWide"){
+   shapes=fakeShapes(o);
+  }else if(o.type==="moving"){
+   const x=o.x+Math.sin(elapsed*o.frequency+o.phase)*o.amplitude;
+   shapes=[{x,y,w:o.w,h:o.h}];
+  }else{
+   shapes=[{x:o.x,y,w:o.w,h:o.h}];
+  }
+  if(shapes.some(s=>beam.x>=s.x&&beam.x<=s.x+s.w)){
+   o.destroyed=true;
+  }
+ }
+}
+
+function startGame(){
+ makeCourse();makeBackground();
+ player={x:W/2-11,y:PLAYER_Y,w:22,h:22};
+ progress=0;maxProgress=0;elapsed=0;
+ shield=0;beamPower=0;slowPower=0;magnet=0;
+ eventTime=0;eventText="";reverseTime=0;beamCooldown=0;
+ activeBeams=[];dying=false;deathTimer=0;deathFlash=0;
+ currentVX=0;currentVY=0;trail=[];particles=[];trailClock=0;
+ Object.keys(keys).forEach(k=>keys[k]=false);
+ keyboardThrottle=0;
+ pointer=null;resetJoy();running=true;
+ $("menu").classList.add("hidden");
+ $("rankingPanel").classList.add("hidden");
+ $("result").classList.add("hidden");
+ $("gameArea").classList.remove("hidden");
+ document.body.style.overflow="hidden";
+ last=performance.now();
+ requestAnimationFrame(loop);
+}
+
+function finish(won){
+ if(!running)return;
+ running=false;dying=false;
+ document.body.style.overflow="";
+ Object.keys(keys).forEach(k=>keys[k]=false);
+ pointer=null;resetJoy();
+
+ const cfg=settings[difficulty];
+ const points=won?Math.min(1000000,Math.round(10000/Math.max(elapsed,1)*cfg.mult)):0;
+ const old=bests[difficulty]||0;
+
+ if(won&&points>old){
+  bests[difficulty]=points;
+  try{localStorage.setItem("dropDodge38Bests",JSON.stringify(bests))}catch(e){}
+ }
+
+ $("resultTitle").textContent=won?"ゴール！":"ゲームオーバー";
+ $("score").textContent=points.toLocaleString()+" pt";
+ $("saveStatus").textContent="";
+
+ $("resultText").innerHTML=won?
+  `クリアタイム：${elapsed.toFixed(2)}秒<br>難易度倍率：×${cfg.mult}<br>自己ベスト：${Math.max(old,points).toLocaleString()} pt`:
+  `最高進行度：${Math.floor(maxProgress/COURSE*100)}%`;
+
+ $("gameArea").classList.add("hidden");
+ $("result").classList.remove("hidden");
+
+ if(won){
+  saveOnlineScore(points);
+ }
+}
+
+function updateParticles(dt){
+ for(let i=particles.length-1;i>=0;i--){
+  const p=particles[i];
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  p.vx*=.97;p.vy*=.97;p.life-=dt;
+  if(p.life<=0)particles.splice(i,1);
+ }
+}
+
+function update(dt){
+ if(dying){
+  deathTimer-=dt;
+  deathFlash=Math.max(0,deathFlash-dt);
+  updateParticles(dt);
+  if(deathTimer<=0)finish(false);
+  return;
+ }
+
+ elapsed+=dt;
+ const cfg=settings[difficulty];
+
+let dx=(keys.right?1:0)-(keys.left?1:0)+inputX;
+let dy=(keys.down?1:0)-(keys.up?1:0)+inputY;
+
+if(reverseTime>0)dx=-dx;
+
+dx=Math.max(-1,Math.min(1,dx));
+dy=Math.max(-1,Math.min(1,dy));
+
+const forwardAmount=Math.max(0,-dy);
+const speed=cfg.minSpeed+(cfg.maxSpeed-cfg.minSpeed)*forwardAmount;
+
+currentVX=dx*speed*1.4;
+currentVY=dy*speed;
+
+player.x+=currentVX*dt;
+player.x=Math.max(4,Math.min(W-player.w-4,player.x));
+
+progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
+ maxProgress=Math.max(maxProgress,progress);
+
+ if(shield>0)shield=Math.max(0,shield-dt);
+ if(beamPower>0)beamPower=Math.max(0,beamPower-dt);
+ if(slowPower>0)slowPower=Math.max(0,slowPower-dt);
+ if(magnet>0)magnet=Math.max(0,magnet-dt);
+ if(reverseTime>0)reverseTime=Math.max(0,reverseTime-dt);
+ if(beamCooldown>0)beamCooldown=Math.max(0,beamCooldown-dt);
+
+ if(beamPower>0)firePlayerBeam();
+ for(const b of activeBeams)b.life-=dt;
+ activeBeams=activeBeams.filter(b=>b.life>0);
+
+ const ratio=Math.min(1,Math.hypot(currentVX,currentVY)/(cfg.maxSpeed*1.4));
+
+ for(const s of stars){
+  s.y+=(12+ratio*100)*s.speed*dt;
+  s.x-=currentVX*.035*dt;
+  if(s.y>H){s.y=-4;s.x=Math.random()*W}
+  if(s.x<0)s.x+=W;
+  if(s.x>W)s.x-=W;
+ }
+
+ trailClock+=dt;
+ if(trailClock>.025){
+  trailClock=0;
+  if(ratio>.05){
+   const a=Math.atan2(currentVY,currentVX)+Math.PI;
+   trail.push({
+    x:player.x+11,y:player.y+11,
+    vx:Math.cos(a)*45+(Math.random()-.5)*25,
+    vy:Math.sin(a)*45+(Math.random()-.5)*25,
+    life:.3+ratio*.3,maxLife:.6,size:2+Math.random()*3
+   });
+  }
+ }
+
+ for(let i=trail.length-1;i>=0;i--){
+  const t=trail[i];
+  t.x+=t.vx*dt;t.y+=t.vy*dt;t.life-=dt;
+  if(t.life<=0)trail.splice(i,1);
+ }
+
+ updateParticles(dt);
+
+ for(const o of obstacles){
+  if(o.type==="fakeFast"||o.type==="fakeSplit"||o.type==="fakeSplitWide"){
+   updateFake(o);
+  }
+ }
+
+ for(const item of items){
+  if(item.taken||magnet<=0)continue;
+  const y=screenY(item.at);
+  const dx=player.x+11-item.x,dy=PLAYER_Y-y;
+  if(Math.hypot(dx,dy)<175){
+   const f=Math.min(1,dt*5);
+   item.x+=dx*f;
+   item.at+=(progress-item.at)*f;
+  }
+ }
+
+ for(const o of obstacles){
+  if(o.destroyed)continue;
+  const y=screenY(o.at);
+  if(y<-800||y>H+300)continue;
+
+  let shapes=[];
+
+  if(o.type==="spike"){
+   const wy=PLAYER_Y-95;
+   if(y>wy-40&&y<wy+20){
+    shapes=[{
+     x:o.side==="left"?0:W-o.w,
+     y:y-15,w:o.w,h:30
+    }];
+   }
+  }else if(o.type==="laser"){
+   if(shield<=0&&lineHitsRect(laserSegment(o),player)){
+    beginDeath();return;
+   }
+   continue;
+  }else if(o.type==="moving"){
+   const x=o.x+Math.sin(elapsed*o.frequency+o.phase)*o.amplitude;
+   shapes=[{x,y,w:o.w,h:o.h}];
+  }else if(o.type==="fakeFast"||o.type==="fakeSplit"||o.type==="fakeSplitWide"){
+   shapes=fakeShapes(o);
+  }else{
+   shapes=[{x:o.x,y,w:o.w,h:o.h}];
+  }
+
+  if(shapes.some(s=>hit(player,s))&&shield<=0){
+   beginDeath();return;
+  }
+ }
+
+ for(const item of items){
+  if(item.taken)continue;
+  const y=screenY(item.at);
+  if(y<-40||y>H+40)continue;
+  if(hit(player,{x:item.x-12,y:y-12,w:24,h:24})){
+   collectItem(item);
+  }
+ }
+
+ $("time").textContent=elapsed.toFixed(2);
+ $("progress").textContent=Math.floor(progress/COURSE*100);
+ $("shield").textContent=shield.toFixed(1);
+
+ const labels=[];
+ if(shield>0)labels.push("🛡 シールド "+shield.toFixed(1));
+ if(beamPower>0)labels.push("⚡ 破壊 "+beamPower.toFixed(1));
+ if(slowPower>0)labels.push("⌛ スロー "+slowPower.toFixed(1));
+ if(magnet>0)labels.push("🧲 磁石 "+magnet.toFixed(1));
+
+ $("effects").innerHTML=labels.map(x=>`<span class="effect">${x}</span>`).join("");
+ $("event").textContent=eventTime>0?eventText:"";
+ if(eventTime>0)eventTime=Math.max(0,eventTime-dt);
+
+ if(progress>=COURSE)finish(true);
+}
+
+function drawSpike(o,y){
+ const x=o.side==="left"?0:W-o.w,wy=PLAYER_Y-95;
+
+ if(y<wy+30){
+  ctx.fillStyle="rgba(255,170,60,.15)";
+  ctx.fillRect(o.side==="left"?0:W-85,wy-30,85,60);
+  ctx.fillStyle="#ffd166";
+  ctx.font="bold 12px sans-serif";
+  ctx.textAlign=o.side==="left"?"left":"right";
+  ctx.fillText("WARNING!",o.side==="left"?8:W-8,wy-35);
+  ctx.textAlign="left";
+ }
+
+ if(y<wy-100||y>H+60)return;
+
+ ctx.fillStyle="#ffad42";
+ ctx.shadowColor="#ffad42";
+ ctx.shadowBlur=12;
+
+ for(let i=0;i<3;i++){
+  const yy=y+i*16;
+  ctx.beginPath();
+  if(o.side==="left"){
+   ctx.moveTo(x,yy);
+   ctx.lineTo(x+o.w,yy+8);
+   ctx.lineTo(x,yy+16);
+  }else{
+   ctx.moveTo(x+o.w,yy);
+   ctx.lineTo(x,yy+8);
+   ctx.lineTo(x+o.w,yy+16);
+  }
+  ctx.closePath();
+  ctx.fill();
+ }
+ ctx.shadowBlur=0;
+}
+
+function draw(){
+ ctx.clearRect(0,0,W,H);
+
+ const bg=ctx.createLinearGradient(0,0,0,H);
+ bg.addColorStop(0,"#0c1728");
+ bg.addColorStop(1,"#08111d");
+ ctx.fillStyle=bg;
+ ctx.fillRect(0,0,W,H);
+
+ for(const s of stars){
+  ctx.globalAlpha=.15;
+  ctx.fillStyle="#9ab4d0";
+  ctx.fillRect(s.x,s.y,s.size,s.size);
+ }
+ ctx.globalAlpha=1;
+
+ ctx.setLineDash([5,8]);
+ ctx.strokeStyle="rgba(120,170,220,.17)";
+ for(const x of lanes){
+  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+ }
+ ctx.setLineDash([]);
+
+ const gy=screenY(COURSE);
+ if(gy>-30&&gy<H+30){
+  ctx.fillStyle="#ffd166";
+  ctx.fillRect(0,gy,W,7);
+  ctx.fillStyle="white";
+  ctx.font="bold 15px sans-serif";
+  ctx.fillText("GOAL",178,gy-8);
+ }
+
+ ctx.globalAlpha=shield>0?.28:1;
+
+ for(const o of obstacles){
+  if(o.destroyed)continue;
+  const y=screenY(o.at);
+  if(y<-800||y>H+220)continue;
+
+  if(o.type==="spike"){
+   drawSpike(o,y);
+   continue;
+  }
+
+  if(o.type==="laser"){
+   const l=laserSegment(o);
+   ctx.strokeStyle="#bd7cff";
+   ctx.lineWidth=5;
+   ctx.shadowColor="#bd7cff";
+   ctx.shadowBlur=15;
+   ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2,l.y2);ctx.stroke();
+   ctx.strokeStyle="#f0dfff";
+   ctx.lineWidth=1.5;
+   ctx.shadowBlur=0;
+   ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2,l.y2);ctx.stroke();
+   ctx.fillStyle="#d6a5ff";
+   ctx.beginPath();ctx.arc(o.x,y,5,0,Math.PI*2);ctx.fill();
+   continue;
+  }
+
+  if(o.type==="fakeFast"||o.type==="fakeSplit"||o.type==="fakeSplitWide"){
+   ctx.fillStyle="#e94f64";
+   ctx.shadowColor="#e94f64";
+   ctx.shadowBlur=13;
+   for(const s of fakeShapes(o)){
+    ctx.fillRect(s.x,s.y,s.w,s.h);
+    ctx.fillStyle="rgba(255,255,255,.35)";
+    ctx.fillRect(s.x,s.y,s.w,4);
+    ctx.fillStyle="#e94f64";
+   }
+   ctx.shadowBlur=0;
+   continue;
+  }
+
+  let x=o.x,color="#e94f64";
+  if(o.type==="moving"){
+   x=o.x+Math.sin(elapsed*o.frequency+o.phase)*o.amplitude;
+   color="#ffbd45";
+  }else if(o.type==="fixed"){
+   color="#a66bff";
+  }
+
+  ctx.fillStyle=color;
+  ctx.shadowColor=color;
+  ctx.shadowBlur=13;
+  ctx.fillRect(x,y,o.w,o.h);
+  ctx.shadowBlur=0;
+  ctx.fillStyle="rgba(255,255,255,.35)";
+  ctx.fillRect(x,y,o.w,4);
+
+  if(o.type==="moving"){
+   ctx.strokeStyle="rgba(255,255,255,.65)";
+   ctx.setLineDash([6,5]);
+   ctx.beginPath();
+   ctx.moveTo(x,y+o.h/2);
+   ctx.lineTo(x+o.w,y+o.h/2);
+   ctx.stroke();
+   ctx.setLineDash([]);
+  }
+ }
+
+ ctx.globalAlpha=1;
+
+ const itemColors={
+  shield:"#38d9ff",beam:"#ffe45c",
+  slow:"#bd7cff",magnet:"#ff668e"
+ };
+ const itemSymbols={shield:"S",beam:"⚡",slow:"⌛",magnet:"U"};
+
+ for(const item of items){
+  if(item.taken)continue;
+  const y=screenY(item.at);
+  if(y<-30||y>H+30)continue;
+  ctx.beginPath();
+  ctx.arc(item.x,y,13,0,Math.PI*2);
+  ctx.fillStyle=itemColors[item.type];
+  ctx.shadowColor=itemColors[item.type];
+  ctx.shadowBlur=14;
+  ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle="#10243a";
+  ctx.font="bold 15px sans-serif";
+  ctx.textAlign="center";
+  ctx.fillText(itemSymbols[item.type],item.x,y+5);
+  ctx.textAlign="left";
+ }
+
+ for(const b of activeBeams){
+  ctx.globalAlpha=Math.min(1,b.life/.10);
+  ctx.fillStyle="#fff28a";
+  ctx.shadowColor="#ffe45c";
+  ctx.shadowBlur=18;
+  ctx.fillRect(b.x-5,b.y-b.length,10,b.length);
+  ctx.fillStyle="white";
+  ctx.fillRect(b.x-2,b.y-b.length,4,b.length);
+  ctx.shadowBlur=0;
+ }
+
+ ctx.globalAlpha=1;
+
+ for(const p of particles){
+  ctx.globalAlpha=Math.max(0,p.life/p.maxLife);
+  ctx.fillStyle=p.color;
+  ctx.shadowColor=p.color;
+  ctx.shadowBlur=8;
+  if(p.square){
+   ctx.save();
+   ctx.translate(p.x,p.y);
+   ctx.rotate(p.life*8);
+   ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+   ctx.restore();
+  }else{
+   ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  }
+ }
+
+ ctx.globalAlpha=1;
+ ctx.shadowBlur=0;
+
+ for(const t of trail){
+  ctx.globalAlpha=Math.max(0,t.life/t.maxLife);
+  ctx.fillStyle=shield>0?"#66f0cf":"#55c7ff";
+  ctx.shadowColor=ctx.fillStyle;
+  ctx.shadowBlur=10;
+  ctx.beginPath();ctx.arc(t.x,t.y,t.size,0,Math.PI*2);ctx.fill();
+ }
+
+ ctx.globalAlpha=1;
+ ctx.shadowBlur=0;
+
+ if(player&&!dying){
+  ctx.fillStyle=shield>0?"#66f0cf":"#55c7ff";
+  ctx.shadowColor=ctx.fillStyle;
+  ctx.shadowBlur=16;
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+  ctx.shadowBlur=0;
+  ctx.fillStyle="#10243a";
+  ctx.fillRect(player.x+5,player.y+5,4,4);
+  ctx.fillRect(player.x+14,player.y+5,4,4);
+ }
+
+ if(deathFlash>0){
+  ctx.globalAlpha=deathFlash/.18*.3;
+  ctx.fillStyle="white";
+  ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=1;
+ }
+
+ ctx.fillStyle="#24364e";
+ ctx.fillRect(12,12,W-24,5);
+ ctx.fillStyle="#55c7ff";
+ ctx.fillRect(12,12,(W-24)*Math.min(1,progress/COURSE),5);
+}
+
+function loop(now){
+ if(!running)return;
+ const dt=Math.min((now-last)/1000,.033);
+ last=now;
+ update(dt);
+ if(!running)return;
+ draw();
+ requestAnimationFrame(loop);
+}
+
+/* =========================================
+   ボタン・画面操作
+========================================= */
+
+document.querySelectorAll(".diff").forEach(b=>{
+ b.addEventListener("click",()=>{
+  difficulty=b.dataset.diff;
+  document.querySelectorAll(".diff").forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");
+  $("description").textContent=descriptions[difficulty];
+ });
+});
+
+$("start").addEventListener("click",()=>{
+ if(!safeNickname()){
+  alert("ランキング用のニックネームを入力してください。");
+  nicknameInput.focus();
+  return;
+ }
+ if(safeNickname().length>16){
+  alert("ニックネームは16文字以内にしてください。");
+  return;
+ }
+ startGame();
+});
+
+$("retry").addEventListener("click",startGame);
+
+$("back").addEventListener("click",()=>{
+ $("result").classList.add("hidden");
+ $("menu").classList.remove("hidden");
+ $("rankingPanel").classList.remove("hidden");
+ document.body.style.overflow="";
+ loadRanking(rankingDifficulty);
+});
+
+/* 最初にランキングを読み込む */
+loadRanking("easy");
+
+</script>
+</body>
+</html>
+
+
