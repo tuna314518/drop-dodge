@@ -172,7 +172,7 @@ const descriptions={
  easy:"連続した2〜3レーンが基本。落ち着いて進もう！",
  normal:"赤ブロックの一部が特殊ブロックに変化！",
  hard:"赤ブロックも特殊ブロックも多い高難度！",
- random:"普通～難しいの範囲で障害物や特殊イベントが変化する予測不能コース！"
+ random:"普通～難しいの範囲で障害物や特殊イベントが変化する予測不能コース！",
  insane:"高密度の障害物。得点倍率は5倍！"
 };
 
@@ -577,7 +577,7 @@ function triggerRandomEvent(type){
 
 function makeCourse(){
  obstacles=[];items=[];
- const seeds={easy:1201,normal:2202,hard:3303,insane:4404,random:Math.floor(Math.random()*1000000000};
+ const seeds={easy:1201,normal:2202,hard:3303,insane:4404,random:Math.floor(Math.random()*1000000000)};
 if(difficulty==="random"){settings.random=makeRandomSettings();}
  const random=rand(seeds[difficulty])
  const cfg=settings[difficulty];
