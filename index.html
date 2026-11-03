@@ -38,7 +38,7 @@ input{width:100%;padding:12px;border-radius:9px;border:1px solid #60738e;backgro
 .rankTable td:first-child{width:45px}
 .rankTable td:last-child{font-weight:bold;color:#55c7ff;text-align:right}
 .rankTable .mine{background:#23415b}
-.rankTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:10px}
+.rankTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:10px}
 .rankTab{padding:8px 2px;border:1px solid #60738e;background:#263750;color:white;border-radius:8px;font-size:12px}
 .rankTab.selected{background:#145d80;border-color:#55c7ff}
 .status{font-size:12px;color:#aebbd0;min-height:20px;margin-top:8px}
@@ -104,6 +104,7 @@ PC：矢印キーまたはWASDで移動<br>
 <button class="rankTab" data-rank="normal">普通</button>
 <button class="rankTab" data-rank="hard">難しい</button>
 <button class="rankTab" data-rank="insane">激ムズ</button>
+<button class="rankTab" data-rank="random">ランダム</button>
 </div>
 <div id="rankingStatus" class="status">ランキングを読み込み中...</div>
 <table class="rankTable">
@@ -326,6 +327,7 @@ const url=SUPABASE_URL.replace(/\/$/,"")+
  normal:"普通",
  hard:"難しい",
  insane:"激ムズ"
+ random:"ランダム"
 };
 
 rows.forEach((row,index)=>{
