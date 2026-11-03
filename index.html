@@ -15,8 +15,10 @@ h1 span{color:#55c7ff}
 .difficulties{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .diff{padding:12px 4px;border:1px solid #60738e;border-radius:10px;background:#263750;color:white;font-size:15px;font-weight:bold}
 .diff.selected{background:#145d80;border:2px solid #55c7ff}
-.diff[data-diff="insane"]{grid-column:1/-1}
+.diff[data-diff="insane"],
+.diff[data-diff="random"]{grid-column:1/-1}
 .diff[data-diff="insane"].selected{background:#632d48;border-color:#ff668e}
+.diff[data-diff="random"].selected{background:#285b48;border-color:#65e6a0}
 #description{color:#c4d0df;font-size:13px;min-height:38px}
 .mainButton{width:100%;padding:14px;border:0;border-radius:12px;background:#55c7ff;color:#102030;margin-top:8px;font-size:16px;font-weight:bold}
 .subButton{width:100%;padding:12px;margin-top:8px;background:#263750;border:1px solid #60738e;border-radius:10px;color:white}
@@ -53,6 +55,7 @@ input{width:100%;padding:12px;border-radius:9px;border:1px solid #60738e;backgro
 <button class="diff selected" data-diff="easy">易しい</button>
 <button class="diff" data-diff="normal">普通</button>
 <button class="diff" data-diff="hard">難しい</button>
+<button class="diff" data-diff="random">ランダム</button>
 <button class="diff" data-diff="insane">🔥 激ムズ</button>
 </div>
 <p id="description">連続した2〜3レーンが基本。落ち着いて進もう！</p>
@@ -142,10 +145,34 @@ const settings={
  insane:{mult:5,minSpeed:800,maxSpeed:800,interval:430,oneLane:.24,split:.25,fake:.12,special:.43,extra:.48,movingSpeed:3.8,replace:.22,cluster:.68}
 };
 
+function makeRandomSettings(){
+ const n=settings.normal;
+ const h=settings.hard;
+ const r=Math.random();
+
+ const mix=(a,b)=>a+(b-a)*r;
+
+ return{
+  mult:mix(n.mult,h.mult),
+  minSpeed:mix(n.minSpeed,h.minSpeed),
+  maxSpeed:mix(n.maxSpeed,h.maxSpeed),
+  interval:mix(n.interval,h.interval),
+  oneLane:mix(n.oneLane,h.oneLane),
+  split:mix(n.split,h.split),
+  fake:mix(n.fake,h.fake),
+  special:mix(n.special,h.special),
+  extra:mix(n.extra,h.extra),
+  movingSpeed:mix(n.movingSpeed,h.movingSpeed),
+  replace:mix(n.replace,h.replace),
+  cluster:mix(n.cluster,h.cluster)
+ };
+}
+
 const descriptions={
  easy:"連続した2〜3レーンが基本。落ち着いて進もう！",
  normal:"赤ブロックの一部が特殊ブロックに変化！",
  hard:"赤ブロックも特殊ブロックも多い高難度！",
+ random:"普通～難しいの範囲で障害物や特殊イベントが変化する予測不能コース！"
  insane:"高密度の障害物。得点倍率は5倍！"
 };
 
@@ -158,6 +185,8 @@ let keyboardThrottle=0;
 let keyboardVX=0;
 let currentVX=0,currentVY=0,trail=[],particles=[],stars=[];
 let trailClock=0,eventTime=0,eventText="",reverseTime=0,beamCooldown=0,activeBeams=[];
+let speedBoost=0,darkTime=0;
+let randomEvents=[];
 let bests={};
 
 try{bests=JSON.parse(localStorage.getItem("dropDodge38Bests")||"{}")}catch(e){}
@@ -498,10 +527,60 @@ function makeReplacementCluster(at,random){
  if(random()<chance)makeReplacement(at+offset,random);
 }
 
+function makeRandomEvents(random){
+ randomEvents=[];
+
+ let count=0;
+
+ if(difficulty==="hard"){
+  count=1;
+ }else if(difficulty==="insane"){
+  count=2+Math.floor(random()*2);
+ }else if(difficulty==="random"){
+  count=Math.floor(random()*2)+1;
+ }
+
+ const types=["reverse","speed","dark"];
+
+ for(let i=0;i<count;i++){
+  randomEvents.push({
+   at:3500+i*(COURSE-7000)/Math.max(1,count-1)
+      + (random()-.5)*900,
+   type:types[Math.floor(random()*types.length)],
+   triggered:false
+  });
+ }
+
+ randomEvents.sort((a,b)=>a.at-b.at);
+}
+
+function triggerRandomEvent(type){
+ const duration=5;
+
+ if(type==="reverse"){
+  reverseTime=duration;
+  eventText="⚠ 左右操作反転！";
+ }
+
+ if(type==="speed"){
+  speedBoost=duration;
+  eventText="⚡ スピードアップ！";
+ }
+
+ if(type==="dark"){
+  darkTime=duration;
+  eventText="🌑 暗闇発生！";
+ }
+
+ eventTime=2;
+}
+
 function makeCourse(){
  obstacles=[];items=[];
- const seeds={easy:1201,normal:2202,hard:3303,insane:4404};
- const random=rand(seeds[difficulty]),cfg=settings[difficulty];
+ const seeds={easy:1201,normal:2202,hard:3303,insane:4404,random:Math.floor(Math.random()*1000000000};
+if(difficulty==="random"){settings.random=makeRandomSettings();}
+ const random=rand(seeds[difficulty])
+ const cfg=settings[difficulty];
  let p=850,row=0;
 
  while(p<COURSE-500){
@@ -544,6 +623,7 @@ function makeCourse(){
 
  obstacles.sort((a,b)=>a.at-b.at);
  items.sort((a,b)=>a.at-b.at);
+ makeRandomEvents(random);
 }
 
 function makeBackground(){
@@ -767,7 +847,7 @@ function startGame(){
  player={x:W/2-11,y:PLAYER_Y,w:22,h:22};
  progress=0;maxProgress=0;elapsed=0;
  shield=0;beamPower=0;slowPower=0;magnet=0;
- eventTime=0;eventText="";reverseTime=0;beamCooldown=0;
+ eventTime=0;eventText="";reverseTime=0;speedBoost=0;darkTime=0;beamCooldown=0;randomEvents=[];
  activeBeams=[];dying=false;deathTimer=0;deathFlash=0;
  currentVX=0;currentVY=0;trail=[];particles=[];trailClock=0;
  Object.keys(keys).forEach(k=>keys[k]=false);
@@ -843,7 +923,7 @@ let dy=(keys.down?1:0)-(keys.up?1:0)+inputY;
 dy=Math.max(-1,Math.min(1,dy));
 
 const forwardAmount=Math.max(0,-dy);
-const speed=cfg.minSpeed+(cfg.maxSpeed-cfg.minSpeed)*forwardAmount;
+const speed=(cfg.minSpeed+(cfg.maxSpeed-cfg.minSpeed)*forwardAmount)*(speedBoost>0?1.4:1);
 
 // PCの左右移動：慣性を追加
 const keyboardDirection=(keys.right?1:0)-(keys.left?1:0);
@@ -883,12 +963,24 @@ player.x=Math.max(4,Math.min(W-player.w-4,player.x));
 
 progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
  maxProgress=Math.max(maxProgress,progress);
+// ランダムイベントの発動
+for(const event of randomEvents){
+ if(!event.triggered&&
+    event.at>previousProgress&&
+    event.at<=progress){
+
+  event.triggered=true;
+  triggerRandomEvent(event.type);
+ }
+}
 
  if(shield>0)shield=Math.max(0,shield-dt);
  if(beamPower>0)beamPower=Math.max(0,beamPower-dt);
  if(slowPower>0)slowPower=Math.max(0,slowPower-dt);
  if(magnet>0)magnet=Math.max(0,magnet-dt);
  if(reverseTime>0)reverseTime=Math.max(0,reverseTime-dt);
+ if(speedBoost>0)speedBoost=Math.max(0,speedBoost-dt);
+ if(darkTime>0)darkTime=Math.max(0,darkTime-dt)
  if(beamCooldown>0)beamCooldown=Math.max(0,beamCooldown-dt);
 
  if(beamPower>0)firePlayerBeam();
@@ -1011,6 +1103,9 @@ if(o.type==="spike"){
  if(beamPower>0)labels.push("⚡ 破壊 "+beamPower.toFixed(1));
  if(slowPower>0)labels.push("⌛ スロー "+slowPower.toFixed(1));
  if(magnet>0)labels.push("🧲 磁石 "+magnet.toFixed(1));
+if(reverseTime>0)labels.push("↔ 左右反転 "+reverseTime.toFixed(1));
+if(speedBoost>0)labels.push("⚡ 速度上昇 "+speedBoost.toFixed(1));
+if(darkTime>0)labels.push("🌑 暗闇 "+darkTime.toFixed(1));
 
  $("effects").innerHTML=labels.map(x=>`<span class="effect">${x}</span>`).join("");
  $("event").textContent=eventTime>0?eventText:"";
@@ -1236,6 +1331,34 @@ function draw(){
   ctx.fillRect(player.x+5,player.y+5,4,4);
   ctx.fillRect(player.x+14,player.y+5,4,4);
  }
+
+// 暗闇イベント
+if(darkTime>0&&player){
+ ctx.save();
+
+ ctx.fillStyle="rgba(0,0,0,0.97)";
+ ctx.fillRect(0,0,W,H);
+
+ ctx.globalCompositeOperation="destination-out";
+
+ const light=ctx.createRadialGradient(
+  player.x+player.w/2,
+  player.y+player.h/2,
+  25,
+  player.x+player.w/2,
+  player.y+player.h/2,
+  145
+ );
+
+ light.addColorStop(0,"rgba(0,0,0,1)");
+ light.addColorStop(0.65,"rgba(0,0,0,0.7)");
+ light.addColorStop(1,"rgba(0,0,0,0)");
+
+ ctx.fillStyle=light;
+ ctx.fillRect(0,0,W,H);
+
+ ctx.restore();
+}
 
  if(deathFlash>0){
   ctx.globalAlpha=deathFlash/.18*.3;
