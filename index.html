@@ -543,15 +543,23 @@ function makeRandomEvents(random){
  const types=["reverse","speed","dark"];
 
  for(let i=0;i<count;i++){
-  randomEvents.push({
-   at:3500+i*(COURSE-7000)/Math.max(1,count-1)
-      + (random()-.5)*900,
-   type:types[Math.floor(random()*types.length)],
-   triggered:false
-  });
+ randomEvents.push({
+ at:3500+i*(COURSE-7000)/Math.max(1,count-1)
+    +(random()-.5)*900,
+ type:types[Math.floor(random()*types.length)],
+ warned:false,
+ triggered:false
+});
  }
 
  randomEvents.sort((a,b)=>a.at-b.at);
+}
+
+function randomEventName(type){
+ if(type==="reverse")return "左右操作の反転";
+ if(type==="speed")return "スピードアップ";
+ if(type==="dark")return "暗闇";
+ return "不明なイベント";
 }
 
 function triggerRandomEvent(type){
@@ -963,8 +971,22 @@ player.x=Math.max(4,Math.min(W-player.w-4,player.x));
 
 progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
  maxProgress=Math.max(maxProgress,progress);
-// ランダムイベントの発動
+// ランダムイベントの警告と発動
+const warningDistance=1500;
+
 for(const event of randomEvents){
+
+ // 発動前の警告
+ if(!event.warned&&!event.triggered&&
+    event.at-warningDistance>previousProgress&&
+    event.at-warningDistance<=progress){
+
+  event.warned=true;
+  eventText="⚠ まもなく "+randomEventName(event.type)+"！";
+  eventTime=2.5;
+ }
+
+ // イベント本番
  if(!event.triggered&&
     event.at>previousProgress&&
     event.at<=progress){
