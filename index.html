@@ -273,7 +273,7 @@ async function saveOnlineScore(score){
 
  }catch(error){
   console.error(error);
-  $("saveStatus").textContent="送信できませんでした。接続設定やSupabaseの権限を確認してください。";
+  $("saveStatus").textContent="送信失敗:"+error.message;
  }
 }
 
@@ -1379,6 +1379,7 @@ if(darkTime>0&&player){
  ctx.fillRect(0,0,W,H);
 
  ctx.restore();
+}
 }
 
 function loop(now){
