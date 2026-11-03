@@ -110,7 +110,7 @@ PC：矢印キーまたはWASDで移動<br>
 <table class="rankTable">
 <thead><tr><th>順位</th><th>ニックネーム</th><th>難易度</th><th style="text-align:right">スコア</th></tr></thead>
 <tbody id="rankingRows">
-<tr><td colspan="3">読み込み中...</td></tr>
+<tr><td colspan="4">読み込み中...</td></tr>
 </tbody>
 </table>
 <button id="refreshRanking" class="subButton">ランキングを更新</button>
@@ -978,14 +978,14 @@ const warningDistance=1500;
 
 for(const event of randomEvents){
 
- // 発動前の警告
+ // イベントまで1500以内になったら警告
  if(!event.warned&&!event.triggered&&
-    event.at-warningDistance>previousProgress&&
-    event.at-warningDistance<=progress){
+    event.at-progress<=warningDistance&&
+    event.at>progress){
 
   event.warned=true;
   eventText="⚠ まもなく "+randomEventName(event.type)+"！";
-  eventTime=2.5;
+  eventTime=3.5;
  }
 
  // イベント本番
