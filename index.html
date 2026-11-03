@@ -348,6 +348,7 @@ function rand(seed){
 
 function makeOpenLanes(random){
  const cfg=settings[difficulty],r=random();
+ const previousProgress=progress;
  if(r<cfg.oneLane)return[Math.floor(random()*5)];
  if(r<cfg.oneLane+cfg.split){
   const p=[[0,2],[0,3],[1,3],[1,4],[0,2,4],[0,3,4],[0,1,3],[1,3,4]];
@@ -739,13 +740,13 @@ function lineHitsRect(line,rect){
 function firePlayerBeam(){
  if(beamPower<=0||beamCooldown>0)return;
  beamCooldown=.38;
- const beam={x:player.x+11,y:player.y-8,length:185,life:.18};
+ const beam={x:player.x+11,y:player.y-8,length:185,width:28,life:.18};
  activeBeams.push(beam);
 
  for(const o of obstacles){
   if(o.destroyed||o.type==="spike"||o.type==="laser")continue;
   const y=screenY(o.at);
-  if(y>beam.y||y<beam.y-beam.length)continue;
+  if(y>beam.y||y+o.h<beam.y-beam.length)continue;
   let shapes=[];
   if(o.type==="fakeFast"||o.type==="fakeSplit"||o.type==="fakeSplitWide"){
    shapes=fakeShapes(o);
@@ -755,7 +756,7 @@ function firePlayerBeam(){
   }else{
    shapes=[{x:o.x,y,w:o.w,h:o.h}];
   }
-  if(shapes.some(s=>beam.x>=s.x&&beam.x<=s.x+s.w)){
+  if(shapes.some(s=>beam.x+beam.width/2>=s.x&&beam.x-beam.width/2<=s.x+s.w)){
    o.destroyed=true;
   }
  }
@@ -950,21 +951,23 @@ progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
 
   let shapes=[];
 if(o.type==="spike"){
-   const wy=PLAYER_Y-95;
-
-   // 前フレームと現在のトゲの位置
    const previousY=PLAYER_Y-(o.at-previousProgress);
 
-   // トゲが警告範囲を通過したか判定
+   // 前フレームから現在までのトゲの移動範囲
    const top=Math.min(previousY,y);
    const bottom=Math.max(previousY,y);
 
-   if(bottom>=wy-40&&top<=wy+20){
+   // トゲがプレイヤーの縦方向の範囲を通過したか
+   const verticalHit=
+    bottom>=player.y-o.h &&
+    top<=player.y+player.h;
+
+   if(verticalHit){
     shapes=[{
      x:o.side==="left"?0:W-o.w,
-     y:wy-15,
+     y:player.y,
      w:o.w,
-     h:30
+     h:player.h
     }];
    }
   }else if(o.type==="laser"){
@@ -1181,7 +1184,7 @@ function draw(){
   ctx.fillStyle="#fff28a";
   ctx.shadowColor="#ffe45c";
   ctx.shadowBlur=18;
-  ctx.fillRect(b.x-5,b.y-b.length,10,b.length);
+  ctx.fillRect(b.x-7,b.y-b.length,14,b.length);
   ctx.fillStyle="white";
   ctx.fillRect(b.x-2,b.y-b.length,4,b.length);
   ctx.shadowBlur=0;
