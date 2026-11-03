@@ -953,22 +953,26 @@ progress=Math.max(0,Math.min(COURSE,progress-currentVY*dt*slowFactor()));
 if(o.type==="spike"){
    const previousY=PLAYER_Y-(o.at-previousProgress);
 
-   // 前フレームから現在までのトゲの移動範囲
+   // トゲの前フレームと現在の位置
    const top=Math.min(previousY,y);
    const bottom=Math.max(previousY,y);
 
-   // トゲがプレイヤーの縦方向の範囲を通過したか
+   // トゲの描画範囲は縦48px
    const verticalHit=
-    bottom>=player.y-o.h &&
-    top<=player.y+player.h;
+    top<=player.y+player.h &&
+    bottom+48>=player.y;
 
-   if(verticalHit){
-    shapes=[{
-     x:o.side==="left"?0:W-o.w,
-     y:player.y,
-     w:o.w,
-     h:player.h
-    }];
+   // 左右のトゲの位置
+   const spikeX=o.side==="left"?0:W-o.w;
+
+   // 横方向の重なり
+   const horizontalHit=
+    player.x<spikeX+o.w &&
+    player.x+player.w>spikeX;
+
+   if(verticalHit&&horizontalHit&&shield<=0){
+    beginDeath();
+    return;
    }
   }else if(o.type==="laser"){
    if(shield<=0&&lineHitsRect(laserSegment(o),player)){
