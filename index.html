@@ -1360,41 +1360,25 @@ function draw(){
 if(darkTime>0&&player){
  ctx.save();
 
- ctx.fillStyle="rgba(0,0,0,0.97)";
- ctx.fillRect(0,0,W,H);
-
- ctx.globalCompositeOperation="destination-out";
-
+ // プレイヤーを中心にした黒いフィルター
  const light=ctx.createRadialGradient(
   player.x+player.w/2,
   player.y+player.h/2,
-  25,
+  145,
   player.x+player.w/2,
   player.y+player.h/2,
-  145
+  230
  );
 
- light.addColorStop(0,"rgba(0,0,0,1)");
- light.addColorStop(0.65,"rgba(0,0,0,0.7)");
- light.addColorStop(1,"rgba(0,0,0,0)");
+ // 中心付近は透明、外側はほぼ真っ暗
+ light.addColorStop(0,"rgba(0,0,0,0)");
+ light.addColorStop(0.65,"rgba(0,0,0,0)");
+ light.addColorStop(1,"rgba(0,0,0,0.97)");
 
  ctx.fillStyle=light;
  ctx.fillRect(0,0,W,H);
 
  ctx.restore();
-}
-
- if(deathFlash>0){
-  ctx.globalAlpha=deathFlash/.18*.3;
-  ctx.fillStyle="white";
-  ctx.fillRect(0,0,W,H);
-  ctx.globalAlpha=1;
- }
-
- ctx.fillStyle="#24364e";
- ctx.fillRect(12,12,W-24,5);
- ctx.fillStyle="#55c7ff";
- ctx.fillRect(12,12,(W-24)*Math.min(1,progress/COURSE),5);
 }
 
 function loop(now){
